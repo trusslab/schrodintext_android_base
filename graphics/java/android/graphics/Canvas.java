@@ -32,6 +32,8 @@ import java.lang.annotation.RetentionPolicy;
 import javax.microedition.khronos.opengles.GL;
 
 import libcore.util.NativeAllocationRegistry;
+import android.util.Log;
+
 
 /**
  * The Canvas class holds the "draw" calls. To draw something, you need
@@ -49,6 +51,9 @@ import libcore.util.NativeAllocationRegistry;
 public class Canvas {
     /** @hide */
     public static boolean sCompatibilityRestore = false;
+    
+    /** @hide */
+    protected static final String ENC_LOG_TAG = "EncryptedMode"; 
 
     /**
      * Should only be assigned in constructors (or setBitmap if software canvas),
@@ -1668,6 +1673,15 @@ public class Canvas {
                 paint.getNativeInstance(), paint.mNativeTypeface);
     }
 
+    /** @hide */
+    public void drawEncryptedText(@NonNull String text, int textLength, byte[] cipher,
+				  int keyHandle, float x, float y, @NonNull Paint paint) {
+        native_drawEncryptedText(mNativeCanvasWrapper, text, 0, textLength, cipher,
+				keyHandle, x, y, paint.mBidiFlags,
+                paint.getNativeInstance(), paint.mNativeTypeface);
+    }
+
+
     /**
      * Draw the text, with origin at (x,y), using the specified paint.
      * The origin is interpreted based on the Align setting in the paint.
@@ -1686,6 +1700,24 @@ public class Canvas {
         }
         native_drawText(mNativeCanvasWrapper, text, start, end, x, y, paint.mBidiFlags,
                 paint.getNativeInstance(), paint.mNativeTypeface);
+    }
+
+    /** @hide */
+    public void drawEncryptedText(@NonNull String text, int textLength, int start, int end,
+				  byte[] cipher, int keyHandle, float x, float y,
+				  @NonNull Paint paint) {
+        if ((start | end | (end - start) | (textLength - end)) < 0) {
+            throw new IndexOutOfBoundsException();
+        }
+
+        native_drawEncryptedText(mNativeCanvasWrapper, text, start, end, cipher,
+			keyHandle, x, y, paint.mBidiFlags,
+            paint.getNativeInstance(), paint.mNativeTypeface);
+    }
+    
+    /** @hide */
+    public static void clearEncryptedText() {
+    	native_clearEncryptedText();
     }
 
     /**
@@ -2123,6 +2155,14 @@ public class Canvas {
                                                int start, int end, float x,
                                                float y, int flags, long nativePaint,
                                                long nativeTypeface);
+
+    private static native void native_drawEncryptedText(long nativeCanvas, String text,
+                                               int start, int end, byte[] cipher,
+					       int keyHandle, float x, float y,
+					       int flags, long nativePaint,
+                                               long nativeTypeface);
+                                               
+    private static native void native_clearEncryptedText();
 
     private static native void native_drawTextRun(long nativeCanvas, String text,
             int start, int end, int contextStart, int contextEnd,

@@ -23,6 +23,8 @@
 #include "Typeface.h"
 
 #include <SkDrawFilter.h>
+#include <utils/Log.h>
+#include "../FontRenderer.h" // for removeHiddenContent()
 
 namespace android {
 
@@ -146,6 +148,60 @@ private:
     float totalAdvance;
 };
 
+class DrawTextFunctorEncrypted {
+public:
+    DrawTextFunctorEncrypted(const Layout& layout, Canvas* canvas, const void* _cipher, unsigned int _cipherSize, int _keyHandle, float* pos,
+            const SkPaint& paint, float x, float y, MinikinRect& bounds, float totalAdvance, int textStart, int textEnd)
+        : layout(layout)
+        , canvas(canvas)
+        , cipher(_cipher)
+		, cipherSize(_cipherSize)
+		, keyHandle(_keyHandle)
+        , pos(pos)
+        , paint(paint)
+        , x(x)
+        , y(y)
+        , bounds(bounds)
+        , totalAdvance(totalAdvance)
+        , textStartPos(textStart)
+        , textEndPos(textEnd)  {
+    }
+
+    void operator()(size_t start, size_t end) {
+        if (canvas->drawTextAbsolutePos()) {
+            for (size_t i = start; i < end; i++) {
+                pos[2 * i] = x + layout.getX(i);
+                pos[2 * i + 1] = y + layout.getY(i);
+            }
+        } else {
+            for (size_t i = start; i < end; i++) {
+                pos[2 * i] = layout.getX(i);
+                pos[2 * i + 1] = layout.getY(i);
+            }
+        }
+        size_t glyphCount = end - start;
+
+		int bytesCount = glyphCount * 2;
+
+		canvas->drawGlyphsEncrypted(cipher, bytesCount, glyphCount, (const uint32_t*) layout.getGlyphCodebook(), layout.getCodebookSize(),
+				  cipherSize, keyHandle, x, y, pos + (2 * start), &paint, totalAdvance, bounds.mLeft, bounds.mTop, bounds.mRight, bounds.mBottom, textStartPos, textEndPos);
+    }
+private:
+    const Layout& layout;
+    Canvas* canvas;
+    const void* cipher;
+    unsigned int cipherSize;
+    int keyHandle;
+    float* pos;
+    const SkPaint& paint;
+    float x;
+    float y;
+    MinikinRect& bounds;
+    float totalAdvance;
+    int textStartPos;
+    int textEndPos;
+};
+
 void Canvas::drawText(const uint16_t* text, int start, int count, int contextCount,
         float x, float y, int bidiFlags, const Paint& origPaint, Typeface* typeface) {
     // minikin may modify the original paint
@@ -174,6 +230,35 @@ void Canvas::drawText(const uint16_t* text, int start, int count, int contextCou
     DrawTextFunctor f(layout, this, glyphs.get(), pos.get(),
             paint, x, y, bounds, layout.getAdvance());
     MinikinUtils::forFontRun(layout, &paint, f);
+}
+
+void Canvas::drawEncryptedText(const uint16_t* cipher, int start, int count, int contextCount,
+             unsigned int cipherSize, int keyHandle, float x, float y, int bidiFlags, const Paint& origPaint,
+	     Typeface* typeface, int textStart, int textEnd) {
+    // minikin may modify the original paint
+    Paint paint(origPaint);
+    Layout layout;
+    MinikinUtils::doEncryptedLayout(&layout, &paint, bidiFlags, typeface, cipher, start, count, contextCount);
+    size_t nGlyphs = layout.nGlyphs();
+    std::unique_ptr<uint16_t[]> glyphs(new uint16_t[nGlyphs]);
+    std::unique_ptr<float[]> pos(new float[nGlyphs * 2]);
+
+    x += MinikinUtils::xOffsetForTextAlign(&paint, layout);
+
+    MinikinRect bounds;
+    layout.getBounds(&bounds);
+    if (!drawTextAbsolutePos()) {
+        bounds.offset(x, y);
+    }
+
+    paint.setTextAlign(Paint::kLeft_Align);
+    DrawTextFunctorEncrypted f(layout, this, (const void*)cipher, cipherSize, keyHandle, pos.get(), paint, x, y, bounds, layout.getAdvance(), textStart, textEnd);
+
+    MinikinUtils::forFontRun(layout, &paint, f);
+}
+
+void Canvas::removeEncryptedText() {
+	uirenderer::FontRenderer::removeHiddenContent();
 }
 
 class DrawTextOnPathFunctor {

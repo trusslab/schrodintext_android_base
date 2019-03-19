@@ -20,6 +20,8 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.text.style.ParagraphStyle;
+import android.util.Log;
+
 
 /**
  * A BoringLayout is a very simple Layout implementation for text that
@@ -35,6 +37,9 @@ import android.text.style.ParagraphStyle;
  *  Canvas.drawText()} directly.</p>
  */
 public class BoringLayout extends Layout implements TextUtils.EllipsizeCallback {
+    /** @hide */
+    protected static final String LOG_TAG = "BoringLayout"; 
+
     public static BoringLayout make(CharSequence source,
                         TextPaint paint, int outerwidth,
                         Alignment align,
@@ -43,6 +48,20 @@ public class BoringLayout extends Layout implements TextUtils.EllipsizeCallback 
         return new BoringLayout(source, paint, outerwidth, align,
                                 spacingmult, spacingadd, metrics,
                                 includepad);
+    }
+
+    /** @hide */
+    public static BoringLayout make(CharSequence source,
+                        TextPaint paint, int outerwidth,
+                        Alignment align,
+                        float spacingmult, float spacingadd,
+                        BoringLayout.Metrics metrics, boolean includepad,
+			boolean encryptedMode, int encryptedTextLength,
+			byte[] cipher, int keyHandle) {
+        return new BoringLayout(source, paint, outerwidth, align,
+                                spacingmult, spacingadd, metrics,
+                                includepad, encryptedMode, encryptedTextLength,
+				cipher, keyHandle);
     }
 
     public static BoringLayout make(CharSequence source,
@@ -72,6 +91,31 @@ public class BoringLayout extends Layout implements TextUtils.EllipsizeCallback 
         mEllipsizedWidth = outerwidth;
         mEllipsizedStart = 0;
         mEllipsizedCount = 0;
+		mEncryptedMode = false;
+
+        init(source, paint, outerwidth, align, spacingmult, spacingadd,
+             metrics, includepad, true);
+        return this;
+    }
+
+    /** @hide */
+    public BoringLayout replaceOrMake(CharSequence source, TextPaint paint,
+                                      int outerwidth, Alignment align,
+                                      float spacingmult, float spacingadd,
+                                      BoringLayout.Metrics metrics,
+                                      boolean includepad, boolean encryptedMode,
+				      int encryptedTextLength, byte[] cipher,
+				      int keyHandle) {
+        replaceWith(source, paint, outerwidth, align, spacingmult,
+                    spacingadd);
+
+        mEllipsizedWidth = outerwidth;
+        mEllipsizedStart = 0;
+        mEllipsizedCount = 0;
+		mEncryptedMode = encryptedMode;
+		mEncryptedTextLength = encryptedTextLength;
+		mCipher = cipher;
+		mKeyHandle = keyHandle;
 
         init(source, paint, outerwidth, align, spacingmult, spacingadd,
              metrics, includepad, true);
@@ -109,6 +153,7 @@ public class BoringLayout extends Layout implements TextUtils.EllipsizeCallback 
             mEllipsizedWidth = ellipsizedWidth;
             trust = false;
         }
+		mEncryptedMode = false;
 
         init(getText(), paint, outerwidth, align, spacingmult, spacingadd,
              metrics, includepad, trust);
@@ -125,6 +170,29 @@ public class BoringLayout extends Layout implements TextUtils.EllipsizeCallback 
         mEllipsizedWidth = outerwidth;
         mEllipsizedStart = 0;
         mEllipsizedCount = 0;
+		mEncryptedMode = false;
+
+        init(source, paint, outerwidth, align, spacingmult, spacingadd,
+             metrics, includepad, true);
+    }
+
+    /** @hide */
+    public BoringLayout(CharSequence source,
+                        TextPaint paint, int outerwidth,
+                        Alignment align,
+                        float spacingmult, float spacingadd,
+                        BoringLayout.Metrics metrics, boolean includepad,
+			boolean encryptedMode, int encryptedTextLength, byte[] cipher,
+			int keyHandle) {
+        super(source, paint, outerwidth, align, spacingmult, spacingadd);
+
+        mEllipsizedWidth = outerwidth;
+        mEllipsizedStart = 0;
+        mEllipsizedCount = 0;
+		mEncryptedMode = encryptedMode;
+		mEncryptedTextLength = encryptedTextLength;
+		mCipher = cipher;
+		mKeyHandle = keyHandle;
 
         init(source, paint, outerwidth, align, spacingmult, spacingadd,
              metrics, includepad, true);
@@ -160,6 +228,7 @@ public class BoringLayout extends Layout implements TextUtils.EllipsizeCallback 
             mEllipsizedWidth = ellipsizedWidth;
             trust = false;
         }
+		mEncryptedMode = false;
 
         init(getText(), paint, outerwidth, align, spacingmult, spacingadd,
              metrics, includepad, trust);
@@ -173,8 +242,11 @@ public class BoringLayout extends Layout implements TextUtils.EllipsizeCallback 
                             boolean trustWidth) {
         int spacing;
 
-        if (source instanceof String && align == Layout.Alignment.ALIGN_NORMAL) {
-            mDirect = source.toString();
+		// Text is always of the same type and is aligned normally in encrypted mode
+		if (mEncryptedMode) {
+		        mDirect = source.toString();
+		} else if (source instanceof String && align == Layout.Alignment.ALIGN_NORMAL) {
+		        mDirect = source.toString();
         } else {
             mDirect = null;
         }
@@ -191,7 +263,9 @@ public class BoringLayout extends Layout implements TextUtils.EllipsizeCallback 
 
         mBottom = spacing;
 
-        if (trustWidth) {
+		// We don't support ellipsized text in encrypted mode
+        if (trustWidth || mEncryptedMode) {
+
             mMax = metrics.width;
         } else {
             /*
@@ -210,6 +284,21 @@ public class BoringLayout extends Layout implements TextUtils.EllipsizeCallback 
             mTopPadding = metrics.top - metrics.ascent;
             mBottomPadding = metrics.bottom - metrics.descent;
         }
+
+		if (mEncryptedMode) {
+			int charWidth = (int) (((float) mMax) / mEncryptedTextLength);
+			mEncryptedNumCharsPerLine = (int) (((float) mEllipsizedWidth) / charWidth);
+
+			/* The last character in the line is reserved for the conditional character */
+			mEncryptedNumCharsPerLine--;
+			mEncryptedNumLines = (int) ((float) mEncryptedTextLength) / mEncryptedNumCharsPerLine;
+
+			/* The last line does not need a conditional character in the end */
+			if (!(((mEncryptedTextLength % mEncryptedNumCharsPerLine) == 0) ||
+			  ((mEncryptedTextLength % mEncryptedNumCharsPerLine) == 1)))
+				mEncryptedNumLines++;
+		}
+
     }
 
     /**
@@ -316,18 +405,62 @@ public class BoringLayout extends Layout implements TextUtils.EllipsizeCallback 
         }
     }
 
+    /** @hide */
+    public static Metrics isEncryptedBoring(CharSequence text, TextPaint paint,
+            TextDirectionHeuristic textDir, Metrics metrics, int encryptedTextLength) {
+
+        int length = encryptedTextLength;
+        boolean boring = true;
+
+        if (boring) {
+            Metrics fm = metrics;
+            if (fm == null) {
+                fm = new Metrics();
+            } else {
+            	fm.reset();
+            }
+
+            TextLine line = TextLine.obtain();
+            line.set(paint, text, 0, length, Layout.DIR_LEFT_TO_RIGHT,
+                    Layout.DIRS_ALL_LEFT_TO_RIGHT, false, null, true);
+            fm.width = (int) Math.ceil(line.metrics(fm));
+            TextLine.recycle(line);
+
+            return fm;
+        } else {
+            return null;
+        }
+    }
+    
+    /** @hide */
+    public static void clearEncryptedText() {
+    	Canvas.clearEncryptedText();
+    }
+
+
     @Override
     public int getHeight() {
+	if (mEncryptedMode) {
+		return (mEncryptedNumLines * mBottom);
+	}
+
         return mBottom;
     }
 
     @Override
     public int getLineCount() {
+		if (mEncryptedMode) {
+			return mEncryptedNumLines;
+		}
         return 1;
     }
 
     @Override
     public int getLineTop(int line) {
+		if (mEncryptedMode) {
+			return (line * mBottom);
+		}
+
         if (line == 0)
             return 0;
         else
@@ -401,9 +534,25 @@ public class BoringLayout extends Layout implements TextUtils.EllipsizeCallback 
     @Override
     public void draw(Canvas c, Path highlight, Paint highlightpaint,
                      int cursorOffset) {
+
         if (mDirect != null && highlight == null) {
-            c.drawText(mDirect, 0, mBottom - mDesc, mPaint);
+			if (mEncryptedMode) {
+				int i, start, end;
+
+				for (i = 0; i < mEncryptedNumLines; i++) {
+			  		start = i * mEncryptedNumCharsPerLine;
+					/* The ( ... + 1) is there to count for the conditional character */ 
+					end = (i == (mEncryptedNumLines - 1)) ? mEncryptedTextLength : (start + mEncryptedNumCharsPerLine + 1); 
+		            c.drawEncryptedText(mDirect, mEncryptedTextLength, start, end,
+										mCipher, mKeyHandle, 0, (mBottom - mDesc) + (i * mBottom), mPaint);
+				}
+			} else {
+		        c.drawText(mDirect, 0, mBottom - mDesc, mPaint);
+			}
         } else {
+            if (mEncryptedMode) {
+                Log.d(LOG_TAG, "Error: Encrypted Mode was detected but mDirect == null or highlight != null.");
+            }
             super.draw(c, highlight, highlightpaint, cursorOffset);
         }
     }
@@ -423,6 +572,13 @@ public class BoringLayout extends Layout implements TextUtils.EllipsizeCallback 
     private int mTopPadding, mBottomPadding;
     private float mMax;
     private int mEllipsizedWidth, mEllipsizedStart, mEllipsizedCount;
+    private boolean mEncryptedMode;
+    private int mEncryptedTextLength;
+    private byte[] mCipher;
+    private int mKeyHandle;
+    private int mEncryptedNumCharsPerLine;
+    private int mEncryptedNumLines;
+
 
     public static class Metrics extends Paint.FontMetricsInt {
         public int width;
