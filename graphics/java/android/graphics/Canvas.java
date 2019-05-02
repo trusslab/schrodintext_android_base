@@ -1678,7 +1678,7 @@ public class Canvas {
 				  int keyHandle, float x, float y, @NonNull Paint paint) {
         native_drawEncryptedText(mNativeCanvasWrapper, text, 0, textLength, cipher,
 				keyHandle, x, y, paint.mBidiFlags,
-                paint.getNativeInstance(), paint.mNativeTypeface);
+                paint.getNativeInstance(), paint.mNativeTypeface, new int[0], 0);
     }
 
 
@@ -1705,14 +1705,14 @@ public class Canvas {
     /** @hide */
     public void drawEncryptedText(@NonNull String text, int textLength, int start, int end,
 				  byte[] cipher, int keyHandle, float x, float y,
-				  @NonNull Paint paint) {
+				  @NonNull Paint paint, int[] charWidths, int charWidthsSize) {
         if ((start | end | (end - start) | (textLength - end)) < 0) {
             throw new IndexOutOfBoundsException();
         }
 
         native_drawEncryptedText(mNativeCanvasWrapper, text, start, end, cipher,
 			keyHandle, x, y, paint.mBidiFlags,
-            paint.getNativeInstance(), paint.mNativeTypeface);
+            paint.getNativeInstance(), paint.mNativeTypeface, charWidths, charWidthsSize);
     }
     
     /** @hide */
@@ -2159,8 +2159,7 @@ public class Canvas {
     private static native void native_drawEncryptedText(long nativeCanvas, String text,
                                                int start, int end, byte[] cipher,
 					       int keyHandle, float x, float y,
-					       int flags, long nativePaint,
-                                               long nativeTypeface);
+					       int flags, long nativePaint, long nativeTypeface, int[] charWidths, int charWidthsSize);
                                                
     private static native void native_clearEncryptedText();
 
@@ -2185,3 +2184,4 @@ public class Canvas {
                                                      int flags, long nativePaint, long nativeTypeface);
     private static native long getNativeFinalizer();
 }
+

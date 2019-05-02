@@ -123,7 +123,7 @@ public:
 	    const void *cipher, uint32_t startIndex, uint32_t len, int numGlyphs,
 	    const uint32_t *glyphCodebook, unsigned int codebookSize, unsigned int cipherSize,
 	    int keyHandle,int x, int y, const float* positions,
-            Rect* bounds, TextDrawFunctor* functor, int textStart, int textEnd, bool forceFinish = true);
+            Rect* bounds, TextDrawFunctor* functor, int textStart, int textEnd, int* charWidths, int charWidthsSize, bool forceFinish = true);
 
     struct DropShadow {
         uint32_t width;
@@ -145,7 +145,7 @@ public:
     uint32_t getSize() const;
     void dumpMemoryUsage(String8& log) const;
 
-    void commitHiddenContent(void *fb, uint32_t fb_width, uint32_t fb_bytespp, int textStart, int textEnd);
+    void commitHiddenContent(void *fb, uint32_t fb_width, uint32_t fb_bytespp);
     static void removeHiddenContent();
 
 #ifdef BUGREPORT_FONT_CACHE_USAGE
@@ -165,7 +165,7 @@ private:
             uint32_t *retOriginX, uint32_t *retOriginY, bool precaching);
     void cacheBitmapEncrypted(const SkGlyph& glyph, CachedGlyphInfo* cachedGlyph,
             uint32_t *retOriginX, uint32_t *retOriginY, bool precaching, SkAutoGlyphCache *autoCache,
-	    int color, int textStart, int textEnd);
+	    int color, int textStart, int textEnd, int* charWidths, int charWidthsSize);
     CacheTexture* cacheBitmapInTexture(std::vector<CacheTexture*>& cacheTextures, const SkGlyph& glyph,
             uint32_t* startX, uint32_t* startY);
 

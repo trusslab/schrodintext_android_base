@@ -174,7 +174,7 @@ protected:
 	    int count, const uint32_t* glyphCodebook, unsigned int codebookSize, unsigned int cipherSize,
 	    int keyHandle, float x, float y, const float* positions, const SkPaint* paint,
 	    float totalAdvance, float boundsLeft, float boundsTop, float boundsRight, float boundsBottom,
-        int textStart, int textEnd, DrawOpMode drawOpMode = DrawOpMode::kImmediate) override;
+        int textStart, int textEnd, int* char_widths, int char_widths_size, DrawOpMode drawOpMode = DrawOpMode::kImmediate) override;
     virtual void drawGlyphsOnPath(const uint16_t* glyphs, int count, const SkPath& path,
             float hOffset, float vOffset, const SkPaint& paint) override;
 
@@ -776,7 +776,7 @@ void SkiaCanvas::drawGlyphsEncrypted(const void* cipher, int bytesCount,
 	    int count, const uint32_t* glyphCodebook, unsigned int codebookSize, unsigned int cipherSize,
 	    int keyHandle, float x, float y, const float* positions, const SkPaint* paint,
 	    float totalAdvance, float boundsLeft, float boundsTop, float boundsRight, float boundsBottom,
-        int textStart, int textEnd, DrawOpMode drawOpMode) {
+        int textStart, int textEnd, int* char_widths, int char_widths_size, DrawOpMode drawOpMode) {
 	return; // this function does nothing, declared as virtual to be overriden by the class that inherits this
 }
 

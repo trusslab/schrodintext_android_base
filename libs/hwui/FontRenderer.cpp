@@ -413,7 +413,10 @@ struct schrodinTextViewInfo {
     void *textPtr;
     int textStart;	// the start and end index for the text to render, broken up because it's possible one sentence of
     int textEnd;	// can be broken up into two lines so we need to keep track of what indexes we render
-    bool drawn; // was this view already drawn?
+    bool drawn; 	// was this view already drawn?
+	int *charWidths;	// pixel width of every ASCII char
+	int charWidthsSize;	// size of charWidths
+	bool monospace;	// is the font monospaced?
 };
 
 /* These constants are arbitrary. */
@@ -425,7 +428,7 @@ int viewCounter = 0;
 
 void FontRenderer::cacheBitmapEncrypted(const SkGlyph& glyph, CachedGlyphInfo* cachedGlyph,
         uint32_t* retOriginX, uint32_t* retOriginY, bool precaching, SkAutoGlyphCache *autoCache,
-	int color, int textStart, int textEnd) {
+	int color, int textStart, int textEnd, int* charWidths, int charWidthsSize) {
     checkInit();
 
     // If the glyph bitmap is empty let's assume the glyph is valid
@@ -505,13 +508,12 @@ void FontRenderer::cacheBitmapEncrypted(const SkGlyph& glyph, CachedGlyphInfo* c
 
     cacheTexture->mEncryptedTexture = true;
 
-    uint8_t* finalCacheBuffer = cacheTexture->getPixelBuffer()->map();
     unsigned int i;
     uint32_t cacheY = 0, src_row, src_col;
 
     if (!currentView || (currentView->textPtr != (void *) cachedGlyph->mCipher) || currentView->textStart != textStart || currentView->textEnd != textEnd) {
 		if (viewCounter >= MAX_VIEWS) {
-	    	ALOGE("%s Too many schrodinTextViews (cacheWidth = %d finalCacheBuffer = %p)\n", __func__, cacheWidth, finalCacheBuffer);
+	    	ALOGE("%s Too many schrodinTextViews (cacheWidth = %d)\n", __func__, cacheWidth);
 	    }
 		currentView = &schrodinViews[viewCounter];
 		memset(currentView, 0x0, sizeof(struct schrodinTextViewInfo));
@@ -519,6 +521,9 @@ void FontRenderer::cacheBitmapEncrypted(const SkGlyph& glyph, CachedGlyphInfo* c
 		currentView->textStart = textStart;
 		currentView->textEnd = textEnd;
 		currentView->drawn = false;
+		currentView->charWidths = charWidths;
+		currentView->charWidthsSize = charWidthsSize;
+		currentView->monospace = charWidths ? false : true;
 		
 		if (viewCounter >= 1) {	// re-use previous schrodpixelbuffer for now, may be NULL in which case it will populate as normal instead of skipping
 			currentView->schrodPixelBuffers = schrodinViews[(viewCounter - 1)].schrodPixelBuffers;
@@ -561,6 +566,15 @@ void FontRenderer::cacheBitmapEncrypted(const SkGlyph& glyph, CachedGlyphInfo* c
 		uint8_t* bitmapBuffer = (uint8_t*) skiaGlyph.fImage;
 		int srcStride = skiaGlyph.rowBytes();
 
+		// Hacky solution to make glyphbook copy glyph image correctly (mostly, is not perfect because SkGlyph is not returning accurate heights of some glyphs for some reason)
+		if ( i == 2 || i == 7 || i == 10 || i == 11 || i == 13 || i == 29 || i == 62 || i == 64 || i == 94) {
+			src_row = 1 + (int) (glyph.fHeight / 2);
+		} else if ( i == 71 || i == 74 || i == 80 || i == 81 ) {
+			src_row = maxHeight - skiaGlyph.fHeight;
+		} else {
+			src_row = glyph.fHeight - skiaGlyph.fHeight + 2;
+		}
+
 		// Copy the glyph image, taking the mask format into account
 		switch (format) {
 		    case SkMask::kA8_Format: {
@@ -568,13 +582,14 @@ void FontRenderer::cacheBitmapEncrypted(const SkGlyph& glyph, CachedGlyphInfo* c
 		        memset(cacheBuffer, 0, maxWidth * 4);
 				cacheBuffer = currentView->schrodPixelBuffers[maxHeight - 1]->getBuffer(i);
 		        memset(cacheBuffer, 0, maxWidth * 4);
+
 		        if (mGammaTable) {
-		            for (cacheY = startY, bY = 0, src_row = 1 + ((int) (glyph.fHeight - skiaGlyph.fHeight) / 2); cacheY < endY; cacheY++, bY += srcStride, src_row++) {
+		            for (cacheY = startY, bY = 0; cacheY < endY; cacheY++, bY += srcStride, src_row++) {
 						cacheBuffer = currentView->schrodPixelBuffers[src_row]->getBuffer(i);
 		                cacheBuffer[(0 * 4) + 3] = 0;
 						memset(&cacheBuffer[0 * 4], color, 3);
 
-		                for (cacheX = startX, bX = 0, src_col = 1 + ((int) (glyph.fWidth - skiaGlyph.fWidth) / 2); cacheX < endX; cacheX++, bX++, src_col++) {
+		                for (cacheX = startX, bX = 0, src_col = 1; cacheX < endX; cacheX++, bX++, src_col++) {
 		                	uint8_t tempCol = bitmapBuffer[bY + bX];
 		                   	cacheBuffer[(src_col * 4) + 3] = mGammaTable[tempCol];
 							memset(&cacheBuffer[src_col * 4], color, 3);
@@ -587,7 +602,7 @@ void FontRenderer::cacheBitmapEncrypted(const SkGlyph& glyph, CachedGlyphInfo* c
 			        ALOGE("%s Error: Not supported\n", __func__);
 		        }
 		        break;
-		    }
+		    } 
 		    case SkMask::kARGB32_Format: {
 			    ALOGE("%s Error: Not supported\n", __func__);
 		        break;
@@ -608,7 +623,7 @@ void FontRenderer::cacheBitmapEncrypted(const SkGlyph& glyph, CachedGlyphInfo* c
     }
 
     for (i = 0; i < maxHeight; i++) {
-        currentView->schrodPixelBuffers[i]->registerSchrobuf();
+        currentView->schrodPixelBuffers[i]->registerSchrobuf(currentView->charWidths, currentView->charWidthsSize);
     }
 
 resolve:
@@ -750,7 +765,7 @@ void FontRenderer::issueDrawCommandEncrypted(std::vector<CacheTexture*>& cacheTe
     }
 }
 
-void FontRenderer::commitHiddenContent(void *fb, uint32_t fb_width, uint32_t fb_bytespp, int textStart, int textEnd) {
+void FontRenderer::commitHiddenContent(void *fb, uint32_t fb_width, uint32_t fb_bytespp) {
     std::vector<CacheTexture*>& cacheTextures = mACacheTextures;
 
     for (uint32_t i = 0; i < cacheTextures.size(); i++) {
@@ -774,7 +789,6 @@ void FontRenderer::commitHiddenContent(void *fb, uint32_t fb_width, uint32_t fb_
            	
            	for (m = 0; m < cview->num_glyphs; m++) {
            		off = (fb_width * fb_bytespp * cview->all_y[m]) + (cview->all_x[m] * fb_bytespp);
-           		
            		/* If we reach the last glyph to render, always set conditional_char to true. 
            		 * Xen will figure out whether to render a conditional char or the actual character.
            		*/
@@ -787,7 +801,8 @@ void FontRenderer::commitHiddenContent(void *fb, uint32_t fb_width, uint32_t fb_
            		if ( textPos < cview->textEnd) { // quick sanity check although this should be unnecessary
            			/* textPos is different from m because we could be rendering the next line so we need to keep track of which character we're rendering */
            			for (j = 0; j < cview->num_schrobufs; j++) {
-           				cview->schrodPixelBuffers[j]->resolve((uint8_t *) fb + off, textPos, conditional_char);
+						bool last_res = (j == (cview->num_schrobufs - 1));
+           				cview->schrodPixelBuffers[j]->resolve((uint8_t *) fb + off, textPos, cview->all_x[m], fb_bytespp, conditional_char, cview->monospace, last_res);
            				off += (fb_width * fb_bytespp);
            			}
            		}
@@ -815,6 +830,9 @@ void FontRenderer::removeHiddenContent() {
 			delete[] cview->schrodPixelBuffers;
 			cview->schrodPixelBuffers = NULL;
 		}
+		delete cview->charWidths;
+		cview->charWidths = NULL;
+		cview->charWidthsSize = 0;
 	}
 }
 
@@ -1048,8 +1066,8 @@ bool FontRenderer::renderPosText(const SkPaint* paint, const Rect* clip, const g
 bool FontRenderer::renderPosEncryptedText(const SkPaint* paint, const Rect* clip,
 	const void *cipher, uint32_t startIndex, uint32_t len, int numGlyphs, 
 	const uint32_t *glyphCodebook, unsigned int codebookSize, unsigned int cipherSize,
-	int keyHandle, int x, int y, const float* positions,
-	Rect* bounds, TextDrawFunctor* functor, int textStart, int textEnd, bool forceFinish) {
+	int keyHandle, int x, int y, const float* positions, Rect* bounds, TextDrawFunctor* functor, 
+	int textStart, int textEnd, int* charWidths, int charWidthsSize, bool forceFinish) {
 
     if (!mCurrentFont) {
         ALOGE("No font set");
@@ -1058,7 +1076,8 @@ bool FontRenderer::renderPosEncryptedText(const SkPaint* paint, const Rect* clip
 
     initRender(clip, bounds, functor);
     mCurrentFont->renderEncrypted(paint, cipher, startIndex, len, numGlyphs, glyphCodebook,
-				  codebookSize, cipherSize, keyHandle, x, y, positions, textStart, textEnd);
+				  codebookSize, cipherSize, keyHandle, x, y, positions, textStart, textEnd,
+				  charWidths, charWidthsSize);
 
     if (forceFinish) {
         finishRender();
@@ -1208,3 +1227,4 @@ uint32_t FontRenderer::getSize() const {
 
 }; // namespace uirenderer
 }; // namespace android
+

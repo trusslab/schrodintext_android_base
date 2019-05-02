@@ -501,7 +501,7 @@ static void drawTextString(JNIEnv* env, jobject, jlong canvasHandle, jstring tex
 static void drawEncryptedTextString(JNIEnv* env, jobject, jlong canvasHandle, jstring text,
                            jint start, jint end, jbyteArray cipher, jint keyHandle,
 			   			   jfloat x, jfloat y, jint bidiFlags,
-                           jlong paintHandle, jlong typefaceHandle) {
+                           jlong paintHandle, jlong typefaceHandle, jintArray charWidths, jint widthArraySize) {
     Paint* paint = reinterpret_cast<Paint*>(paintHandle);
     Typeface* typeface = reinterpret_cast<Typeface*>(typefaceHandle);
     const int count = end - start;
@@ -511,8 +511,15 @@ static void drawEncryptedTextString(JNIEnv* env, jobject, jlong canvasHandle, js
     jbyte* _cipher = env->GetByteArrayElements(cipher, NULL);
     jsize cipherSize = env->GetArrayLength(cipher);
 
-    get_canvas(canvasHandle)->drawEncryptedText((const uint16_t *) _cipher, 0, count, count, cipherSize,
-				 keyHandle, x, y, bidiFlags, *paint, typeface, start, end);
+	if (widthArraySize) {
+    	AutoJavaIntArray char_widths(env, charWidths, widthArraySize);	
+
+   	 	get_canvas(canvasHandle)->drawEncryptedText((const uint16_t *) _cipher, 0, count, count, cipherSize,
+				 keyHandle, x, y, bidiFlags, *paint, typeface, start, end, char_widths.ptr(), widthArraySize);
+	} else { // pass NULL here to pointer
+   	 	get_canvas(canvasHandle)->drawEncryptedText((const uint16_t *) _cipher, 0, count, count, cipherSize,
+				 keyHandle, x, y, bidiFlags, *paint, typeface, start, end, NULL, 0);
+	}
 				 
     env->ReleaseStringChars(text, jchars);
     env->ReleaseByteArrayElements(cipher, _cipher, 0);
@@ -647,7 +654,7 @@ static const JNINativeMethod gMethods[] = {
     {"nativeDrawBitmapMesh", "!(JLandroid/graphics/Bitmap;II[FI[IIJ)V", (void*)CanvasJNI::drawBitmapMesh},
     {"native_drawText","!(J[CIIFFIJJ)V", (void*) CanvasJNI::drawTextChars},
     {"native_drawText","!(JLjava/lang/String;IIFFIJJ)V", (void*) CanvasJNI::drawTextString},
-    {"native_drawEncryptedText","(JLjava/lang/String;II[BIFFIJJ)V", (void*) CanvasJNI::drawEncryptedTextString},
+    {"native_drawEncryptedText","(JLjava/lang/String;II[BIFFIJJ[II)V", (void*) CanvasJNI::drawEncryptedTextString},
     {"native_clearEncryptedText","()V", (void*) CanvasJNI::clearEncryptedText},
     {"native_drawTextRun","!(J[CIIIIFFZJJ)V", (void*) CanvasJNI::drawTextRunChars},
     {"native_drawTextRun","!(JLjava/lang/String;IIIIFFZJJ)V", (void*) CanvasJNI::drawTextRunString},
@@ -663,3 +670,4 @@ int register_android_graphics_Canvas(JNIEnv* env) {
 }
 
 }; // namespace android
+

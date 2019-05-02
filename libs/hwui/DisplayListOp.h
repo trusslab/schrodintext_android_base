@@ -1323,11 +1323,12 @@ public:
     DrawTextOp(const void* cipher, int bytesCount, int count, const uint32_t* glyphCodebook,
 	    		unsigned int codebookSize, unsigned int cipherSize, int keyHandle, float x, float y,
             	const float* positions, const SkPaint* paint, float totalAdvance, const Rect& bounds,
-	    		bool encryptedMode, int textStart, int textEnd)
+	    		bool encryptedMode, int textStart, int textEnd, int* char_widths, int char_widths_size)
             	: DrawStrokableOp(bounds, paint), mText(NULL), mBytesCount(bytesCount), mCount(count),
             	mX(x), mY(y), mPositions(positions), mTotalAdvance(totalAdvance),
             	mEncryptedMode(encryptedMode), mGlyphCodebook(glyphCodebook),
-            	mCodebookSize(codebookSize), mCipherSize(cipherSize), mKeyHandle(keyHandle), mTextStart(textStart), mTextEnd(textEnd)	{
+            	mCodebookSize(codebookSize), mCipherSize(cipherSize), mKeyHandle(keyHandle), 
+				mTextStart(textStart), mTextEnd(textEnd), mCharWidths(char_widths), mCharWidthsSize(char_widths_size)	{
             	
         	mPrecacheTransform = SkMatrix::InvalidMatrix();
 
@@ -1378,7 +1379,8 @@ public:
         if (mEncryptedMode) {
             renderer.drawEncryptedText(mCipher, mBytesCount, mCount,
 		    mGlyphCodebook, mCodebookSize, mCipherSize, mKeyHandle, mX, mY,
-                    mPositions, mPaint, mTotalAdvance, bounds, mTextStart, mTextEnd);
+                    mPositions, mPaint, mTotalAdvance, bounds, mTextStart, 
+					mTextEnd, mCharWidths, mCharWidthsSize);
 	    	free((void *) mCipher);
 	    	return;
 		}
@@ -1427,8 +1429,8 @@ public:
 		        // directly, we do not need to account for shadow by calling getLocalBounds()
 				renderer.drawEncryptedText(op.mCipher, op.mBytesCount, op.mCount,
 											op.mGlyphCodebook, op.mCodebookSize, op.mCipherSize, mKeyHandle, op.mX, op.mY,
-		                					op.mPositions, op.mPaint, op.mTotalAdvance, op.mLocalBounds, op.mTextStart, op.mTextEnd,
-		                					drawOpMode);
+		                					op.mPositions, op.mPaint, op.mTotalAdvance, op.mLocalBounds, op.mTextStart, op.mTextEnd, 
+		                					mCharWidths, mCharWidthsSize, drawOpMode);
 		    }
 
 		free((void *) mCipher);
@@ -1457,6 +1459,8 @@ private:
     int mKeyHandle;
     int mTextStart;
     int mTextEnd;
+	int* mCharWidths;
+	int mCharWidthsSize;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1634,3 +1638,4 @@ private:
 }; // namespace android
 
 #endif // ANDROID_HWUI_DISPLAY_OPERATION_H
+

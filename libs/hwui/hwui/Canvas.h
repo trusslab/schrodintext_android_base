@@ -231,7 +231,7 @@ public:
 
     void drawEncryptedText(const uint16_t* cipher, int start, int count, int contextCount,
              unsigned int cipherSize, int keyHandle, float x, float y, int bidiFlags, const Paint& origPaint,
-	     Typeface* typeface, int textStart, int textEnd);
+	     Typeface* typeface, int textStart, int textEnd, int* char_widths, int char_widths_size);
 	     
 	static void removeEncryptedText();
 
@@ -263,7 +263,7 @@ protected:
 	    int count, const uint32_t* glyphCodebook, unsigned int codebookSize, unsigned int cipherSize,
 	    int keyHandle, float x, float y, const float* positions, const SkPaint* paint,
 	    float totalAdvance, float boundsLeft, float boundsTop, float boundsRight, float boundsBottom,
-        int textStart, int textEnd, DrawOpMode drawOpMode = DrawOpMode::kImmediate) = 0;
+        int textStart, int textEnd, int* char_widths, int char_widths_size, DrawOpMode drawOpMode = DrawOpMode::kImmediate) = 0;
 
     friend class DrawTextFunctor;
     friend class DrawTextFunctorEncrypted;

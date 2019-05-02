@@ -221,8 +221,8 @@ public:
     ~SchrodPixelBuffer();
 
     uint8_t *getBuffer(unsigned int i);
-    int resolve(uint8_t *dst_addr, unsigned int textPos, bool conditional_char);
-    int registerSchrobuf(void);
+    int resolve(uint8_t *dst_addr, unsigned int textPos, unsigned int px, unsigned int fb_bytespp, bool conditional_char, bool trust_addr, bool last_res);
+    int registerSchrobuf(int* charWidths, int charWidthsSize);
 
 private:
     int openSchrobuf(void);
@@ -244,3 +244,4 @@ private:
 }; // namespace android
 
 #endif // ANDROID_HWUI_PIXEL_BUFFER_H
+

@@ -451,9 +451,10 @@ void DisplayListCanvas::drawGlyphs(const uint16_t* glyphs, const float* position
 }
 
 void DisplayListCanvas::drawGlyphsEncrypted(const void* cipher, int bytesCount,
-	int count, const uint32_t* glyphCodebook, unsigned int codebookSize, unsigned int cipherSize,
+		int count, const uint32_t* glyphCodebook, unsigned int codebookSize, unsigned int cipherSize,
         int keyHandle, float x, float y, const float* positions, const SkPaint* paint,
-        float totalAdvance, float boundsLeft, float boundsTop, float boundsRight, float boundsBottom, int textStart, int textEnd, DrawOpMode drawOpMode) {
+        float totalAdvance, float boundsLeft, float boundsTop, float boundsRight, float boundsBottom, 
+		int textStart, int textEnd, int* char_widths, int char_widths_size, DrawOpMode drawOpMode) {
         
     if (!cipher || count <= 0 || PaintUtils::paintWillNotDrawText(*paint)) return;
 
@@ -462,7 +463,8 @@ void DisplayListCanvas::drawGlyphsEncrypted(const void* cipher, int bytesCount,
 
     DrawOp* op = new (alloc()) DrawTextOp(cipher, bytesCount, count,
 						glyphCodebook, codebookSize, cipherSize, keyHandle,
-                		x, y, positions, refPaint(paint), totalAdvance, bounds, true, textStart, textEnd);
+                		x, y, positions, refPaint(paint), totalAdvance, 
+						bounds, true, textStart, textEnd, char_widths, char_widths_size);
     addDrawOp(op);
     drawTextDecorations(x, y, totalAdvance, *paint);
 }
@@ -617,3 +619,4 @@ void DisplayListCanvas::refBitmapsInShader(const SkShader* shader) {
 
 }; // namespace uirenderer
 }; // namespace android
+

@@ -199,7 +199,7 @@ public:
     void drawEncryptedText(const void* cipher, int bytesCount, int count,
 	    const uint32_t* glyphCodebook, unsigned int codebookSize, unsigned int cipherSize,
 	    int keyHandle, float x, float y, const float* positions, const SkPaint* paint,
-	    float totalAdvance, const Rect& bounds, int textStart, int textEnd, DrawOpMode drawOpMode = DrawOpMode::kImmediate);
+	    float totalAdvance, const Rect& bounds, int textStart, int textEnd, int* charWidths, int charWidthsSize, DrawOpMode drawOpMode = DrawOpMode::kImmediate);
     void drawRects(const float* rects, int count, const SkPaint* paint);
 
     void drawShadow(float casterAlpha,

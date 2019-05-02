@@ -202,21 +202,27 @@ int SchrodPixelBuffer::closeSchrobuf(void) {
 #define SCHROBUF_RESOLVE	7
 
 struct schrobuf_register_ioctl {
-    unsigned long buffers_mem;
-    unsigned int num_buffers;
-    unsigned int buffer_size;
+    unsigned long buffers_mem;	// addr to glyphbook
+    unsigned int num_buffers;	// glyphbook size
+    unsigned int buffer_size;	// size of each glyph in glyphbook
     unsigned long encrypted_text;
     unsigned int text_len;
     unsigned int text_buf_size;
+	unsigned long char_widths; 	// addr to array describing pixel width of each char
+	unsigned int char_widths_size; // size of char_widths
 };
 
 struct schrobuf_resolve_ioctl {
     unsigned long dst_addr;
     unsigned int text_pos;
+	unsigned int px;			// pixel coordinate on x-axis
+	unsigned int fb_bytespp;
     bool conditional_char;
+	bool trust_addr;			// tell Xen to composite text at dst_addr, do not perform adjustment (set true for monospaced fonts, false otherwise)
+	bool last_res;
 };
 
-int SchrodPixelBuffer::registerSchrobuf(void) {
+int SchrodPixelBuffer::registerSchrobuf(int* charWidths, int charWidthsSize) {
     int ret;	
     struct schrobuf_register_ioctl data;
     
@@ -231,6 +237,8 @@ int SchrodPixelBuffer::registerSchrobuf(void) {
     data.encrypted_text = (unsigned long) mCipher;
     data.text_len = mTextLen;
     data.text_buf_size = mCipherSize;
+	data.char_widths = charWidths ? (unsigned long) charWidths : 0;
+	data.char_widths_size = charWidthsSize;
     
     ret = ioctl(mFd, SCHROBUF_REGISTER, &data);
     
@@ -252,7 +260,7 @@ int SchrodPixelBuffer::unregisterSchrobuf(void) {
 
 int hide_counter = 0;
 
-int SchrodPixelBuffer::resolve(uint8_t *dst_addr, unsigned int textPos, bool conditional_char) {
+int SchrodPixelBuffer::resolve(uint8_t *dst_addr, unsigned int textPos, unsigned int px, unsigned int fb_bytespp, bool conditional_char, bool trust_addr, bool last_res) {
     int ret;	
     struct schrobuf_resolve_ioctl data;
     
@@ -263,7 +271,11 @@ int SchrodPixelBuffer::resolve(uint8_t *dst_addr, unsigned int textPos, bool con
     
     data.dst_addr = (unsigned long) dst_addr;
     data.text_pos = textPos;
+	data.px = px;
+	data.fb_bytespp = fb_bytespp;
     data.conditional_char = conditional_char;
+	data.trust_addr = trust_addr;
+	data.last_res = last_res;
     
     ret = ioctl(mFd, SCHROBUF_RESOLVE, &data);
     
@@ -324,3 +336,4 @@ int SchrodPixelBuffer::getKeyHandle() {
 
 }; // namespace uirenderer
 }; // namespace android
+

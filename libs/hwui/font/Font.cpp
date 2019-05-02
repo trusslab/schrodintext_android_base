@@ -316,7 +316,7 @@ CachedGlyphInfo* Font::getCachedGlyphEncrypted(const SkPaint* paint, const void 
 				unsigned int len, unsigned int numGlyphs, unsigned int textPos,
 				const uint32_t *glyphCodebook, unsigned int codebookSize,
 				unsigned int cipherSize, int keyHandle, int textStart, int textEnd,
-				bool precaching) {
+				int* charWidths, int charWidthsSize, bool precaching) {
     CachedGlyphInfo* cachedGlyph;
 
     if (textPos >= len) {
@@ -326,7 +326,7 @@ CachedGlyphInfo* Font::getCachedGlyphEncrypted(const SkPaint* paint, const void 
 
 
     cachedGlyph = cacheGlyphEncrypted(paint, cipher, len, numGlyphs, textPos, glyphCodebook,
-		    		      codebookSize, cipherSize, keyHandle, textStart, textEnd, precaching);
+		    		   codebookSize, cipherSize, keyHandle, textStart, textEnd, charWidths, charWidthsSize, precaching);
 
     return cachedGlyph;
 }
@@ -339,9 +339,10 @@ void Font::render(const SkPaint* paint, const glyph_t* glyphs,
 
 void Font::renderEncrypted(const SkPaint* paint, const void *cipher, uint32_t start,
 	    uint32_t len, int numGlyphs, const uint32_t *glyphCodebook, unsigned int codebookSize,
-	    unsigned int cipherSize, int keyHandle, int x, int y, const float* positions, int textStart, int textEnd) {
+	    unsigned int cipherSize, int keyHandle, int x, int y, const float* positions, int textStart, int textEnd,
+		int* charWidths, int charWidthsSize) {
     renderEncrypted(paint, cipher, start, len, numGlyphs, glyphCodebook, codebookSize,
-		    cipherSize, keyHandle, x, y, FRAMEBUFFER, NULL, 0, 0, NULL, positions, textStart, textEnd);
+		    cipherSize, keyHandle, x, y, FRAMEBUFFER, NULL, 0, 0, NULL, positions, textStart, textEnd, charWidths, charWidthsSize);
 }
 
 void Font::render(const SkPaint* paint, const glyph_t* glyphs, int numGlyphs,
@@ -478,7 +479,8 @@ void Font::render(const SkPaint* paint, const glyph_t* glyphs,
 void Font::renderEncrypted(const SkPaint* paint, const void* cipher, uint32_t start,
 	uint32_t len, int numGlyphs, const uint32_t *glyphCodebook, unsigned int codebookSize,
 	unsigned int cipherSize, int keyHandle, int x, int y, RenderMode mode, uint8_t *bitmap,
-        uint32_t bitmapW, uint32_t bitmapH, Rect* bounds, const float* positions, int textStart, int textEnd) {
+    uint32_t bitmapW, uint32_t bitmapH, Rect* bounds, const float* positions, int textStart, int textEnd,
+	int* charWidths, int charWidthsSize) {
     if (numGlyphs == 0 || cipher == NULL || len == 0) {
 		ALOGE("%s numGlyphs == 0 || cipher == NULL || len == 0 somehow occurred", __func__);
         return;
@@ -496,7 +498,8 @@ void Font::renderEncrypted(const SkPaint* paint, const void* cipher, uint32_t st
 		unsigned int textPos = (unsigned int) glyphsCount;
         CachedGlyphInfo* cachedGlyph = getCachedGlyphEncrypted(paint, cipher,
 				(unsigned int) len, (unsigned int) numGlyphs, textPos, 
-				glyphCodebook, codebookSize, cipherSize, keyHandle, textStart, textEnd);
+				glyphCodebook, codebookSize, cipherSize, keyHandle, textStart, textEnd,
+				charWidths, charWidthsSize);
 
         // If it's still not valid, we couldn't cache it, so we shouldn't
         // draw garbage; also skip empty glyphs (spaces)
@@ -558,14 +561,13 @@ void Font::updateGlyphCache(const SkPaint* paint, const SkGlyph& skiaGlyph,
 
 SkGlyph g_skiaGlyph;
 bool g_skiaGlyphSet = false;
-void Font::updateGlyphCacheEncrypted(const SkPaint* paint, CachedGlyphInfo* glyph, int textStart, int textEnd, bool precaching) {
+void Font::updateGlyphCacheEncrypted(const SkPaint* paint, CachedGlyphInfo* glyph, int textStart, int textEnd, int* charWidths, int charWidthsSize, bool precaching) {
 
     glyph_t _glyph = glyph->mGlyphCodebook[5]; //We can use any glyph since we only support monospaced fonts
 
     SkSurfaceProps surfaceProps(0, kUnknown_SkPixelGeometry);
     SkAutoGlyphCacheNoGamma autoCache(*paint, &surfaceProps, &mDescription.mLookupTransform);
     // some skiaGlyph needed for its size properties, not its actual glyph
-    
     const SkGlyph& _skiaGlyph = GET_METRICS(autoCache.getCache(), _glyph);
     if (g_skiaGlyphSet) 
     	goto skiaGlyphFound;
@@ -598,7 +600,7 @@ skiaGlyphFound:
     uint32_t startY = 0;
 
     mState->cacheBitmapEncrypted(g_skiaGlyph, glyph, &startX, &startY, precaching, &autoCache,
-				 paint->getColor(), textStart, textEnd);
+				 paint->getColor(), textStart, textEnd, charWidths, charWidthsSize);
 
     if (!glyph->mIsValid) {
         return;
@@ -645,7 +647,8 @@ CachedGlyphInfo* Font::cacheGlyph(const SkPaint* paint, glyph_t glyph, bool prec
 CachedGlyphInfo* Font::cacheGlyphEncrypted(const SkPaint* paint, const void *cipher,
 				unsigned int len, unsigned int numGlyphs, unsigned int textPos,
 				const uint32_t *glyphCodebook, unsigned int codebookSize,
-				unsigned int cipherSize, int keyHandle, int textStart, int textEnd, bool precaching) {
+				unsigned int cipherSize, int keyHandle, int textStart, int textEnd, 
+				int* charWidths, int charWidthsSize, bool precaching) {
 
     CachedGlyphInfo* newGlyph = new CachedGlyphInfo();
     newGlyph->mIsValid = false;
@@ -658,7 +661,7 @@ CachedGlyphInfo* Font::cacheGlyphEncrypted(const SkPaint* paint, const void *cip
     newGlyph->mCipherSize = cipherSize;
     newGlyph->mKeyHandle = keyHandle;
 
-    updateGlyphCacheEncrypted(paint, newGlyph, textStart, textEnd, precaching);
+    updateGlyphCacheEncrypted(paint, newGlyph, textStart, textEnd, charWidths, charWidthsSize, precaching);
 
     return newGlyph;
 }
@@ -678,3 +681,4 @@ Font* Font::create(FontRenderer* state, const SkPaint* paint, const SkMatrix& ma
 
 }; // namespace uirenderer
 }; // namespace android
+

@@ -86,7 +86,8 @@ public:
 
     void renderEncrypted(const SkPaint* paint, const void* cipher, uint32_t start,
 	    uint32_t len, int numGlyphs, const uint32_t *glyphCodebook, unsigned int codebookSize,
-	    unsigned int cipherSize, int keyHandle, int x, int y, const float* positions, int textStart, int textEnd);
+	    unsigned int cipherSize, int keyHandle, int x, int y, const float* positions, int textStart, int textEnd, 
+		int* charWidths, int charWidthsSize);
 
     void render(const SkPaint* paint, const glyph_t* glyphs,
             int numGlyphs, const SkPath* path, float hOffset, float vOffset);
@@ -126,7 +127,8 @@ private:
     void renderEncrypted(const SkPaint* paint, const void *cipher, uint32_t start,
 	    uint32_t len, int numGlyphs, const uint32_t *glyphCodebook, unsigned int codebookSize,
 	    unsigned int cipherSize, int keyHandle, int x, int y, RenderMode mode, uint8_t *bitmap,
-            uint32_t bitmapW, uint32_t bitmapH, Rect *bounds, const float* positions, int textStart, int textEnd);
+        uint32_t bitmapW, uint32_t bitmapH, Rect *bounds, const float* positions, int textStart, int textEnd,
+		int* charWidths, int charWidthsSize);
 
     void measure(const SkPaint* paint, const glyph_t* glyphs,
             int numGlyphs, Rect *bounds, const float* positions);
@@ -138,12 +140,13 @@ private:
     CachedGlyphInfo* cacheGlyphEncrypted(const SkPaint* paint, const void *cipher,
 		    	unsigned int len, unsigned int numGlyphs, unsigned int textPos,
 			const uint32_t *glyphCodebook, unsigned int codebookSize,
-			unsigned int cipherSize, int keyHandle, int textStart, int textEnd, bool precaching);
+			unsigned int cipherSize, int keyHandle, int textStart, int textEnd,
+			int* charWidths, int charWidthsSize, bool precaching);
 
     void updateGlyphCache(const SkPaint* paint, const SkGlyph& skiaGlyph,
             SkGlyphCache* skiaGlyphCache, CachedGlyphInfo* glyph, bool precaching);
 
-    void updateGlyphCacheEncrypted(const SkPaint* paint, CachedGlyphInfo* glyph, int textStart, int textEnd, bool precaching);
+    void updateGlyphCacheEncrypted(const SkPaint* paint, CachedGlyphInfo* glyph, int textStart, int textEnd, int* charWidths, int charWidthsSize, bool precaching);
 
 
     void measureCachedGlyph(CachedGlyphInfo* glyph, int x, int y,
@@ -172,7 +175,7 @@ private:
     CachedGlyphInfo* getCachedGlyphEncrypted(const SkPaint* paint, const void *cipher,
 	    unsigned int len, unsigned int numGlyphs, unsigned int textPos,
 	    const uint32_t *glyphCodebook, unsigned int codebookSize, unsigned int cipherSize,
-	    int keyHandle, int textStart, int textEnd, bool precaching = false);
+	    int keyHandle, int textStart, int textEnd, int* charWidths, int charWidthsSize, bool precaching = false);
 
     FontRenderer* mState;
     FontDescription mDescription;
@@ -200,3 +203,4 @@ inline hash_t hash_type(const Font::FontDescription& entry) {
 }; // namespace android
 
 #endif // ANDROID_HWUI_FONT_H
+

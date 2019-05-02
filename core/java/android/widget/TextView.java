@@ -561,6 +561,7 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
     private boolean mEncryptedMode;
     private int mEncryptedTextLength;
     private byte[] mCipher;
+	private String mEncryptedLayoutMode;
     private int mKeyHandle;
     private CharSequence mTransformed;
     private BufferType mBufferType = BufferType.NORMAL;
@@ -6839,7 +6840,7 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
             if (hintBoring == UNKNOWN_BORING) {
 				if (mEncryptedMode) {
 				        hintBoring = BoringLayout.isEncryptedBoring(mHint, mTextPaint, mTextDir,
-				                                            mHintBoring, mEncryptedTextLength);
+				                                            mHintBoring, mEncryptedTextLength, String.valueOf(this.getTypeface()), mEncryptedLayoutMode);
 				} else {
                 	hintBoring = BoringLayout.isBoring(mHint, mTextPaint, mTextDir,
                     	                               mHintBoring);
@@ -6936,7 +6937,7 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
             if (boring == UNKNOWN_BORING) {
 				if (mEncryptedMode) {
 					boring = BoringLayout.isEncryptedBoring(mTransformed, mTextPaint, mTextDir,
-															mBoring, mEncryptedTextLength);
+															mBoring, mEncryptedTextLength, String.valueOf(this.getTypeface()), mEncryptedLayoutMode);
 				} else {
                 	boring = BoringLayout.isBoring(mTransformed, mTextPaint, mTextDir, mBoring);
 				}
@@ -7106,7 +7107,7 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
             if (des < 0) {
 				if (mEncryptedMode) {
 					boring = BoringLayout.isEncryptedBoring(mTransformed, mTextPaint, mTextDir,
-									mBoring, mEncryptedTextLength);
+									mBoring, mEncryptedTextLength, String.valueOf(this.getTypeface()), mEncryptedLayoutMode);
 				} else {
                 	boring = BoringLayout.isBoring(mTransformed, mTextPaint, mTextDir, mBoring);
 				}
@@ -7143,7 +7144,7 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
                 if (hintDes < 0) {
 					if (mEncryptedMode) {
 				            hintBoring = BoringLayout.isEncryptedBoring(mHint, mTextPaint, mTextDir,
-											mHintBoring, mEncryptedTextLength);
+											mHintBoring, mEncryptedTextLength, String.valueOf(this.getTypeface()), mEncryptedLayoutMode);
 					} else {
                     	hintBoring = BoringLayout.isBoring(mHint, mTextPaint, mTextDir, mHintBoring);
 					}
@@ -10094,6 +10095,10 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
     public void setEncryptedTextLength(int encryptedTextLength) {
         mEncryptedTextLength = encryptedTextLength;
     }
+	/** @hide */
+	public void setEncryptedLayoutMode(String textMode) {
+		mEncryptedLayoutMode = textMode;
+	}
     /** @hide */
     public byte[] getCipher () {
         return mCipher;
@@ -10490,3 +10495,4 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
         }
     }
 }
+

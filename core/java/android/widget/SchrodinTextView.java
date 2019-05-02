@@ -67,6 +67,11 @@ public class SchrodinTextView extends TextView {
 
 	/** @hide */
     static final String LOG_TAG = "SchrodinTextView";
+	private String textMode = "STANDARD";	// see setLayoutMode()
+	private byte[] lastCiphertext;
+	private int lastCiphertextSize;
+	private int lastTextLen;
+	private int lastKeyHandle;
 
     public SchrodinTextView(Context context) {
         this(context, null);
@@ -87,6 +92,11 @@ public class SchrodinTextView extends TextView {
 
     public void setCiphertext(byte[] ciphertext, int ciphertextSize, int textLen, int keyHandle) {
 		int i;
+		lastCiphertext = ciphertext;
+		lastCiphertextSize = ciphertextSize;
+		lastTextLen = textLen;
+		lastKeyHandle = keyHandle;
+
 		String dummyText = "";
 		setEncryptedMode(true);
 		//Log.d(LOG_TAG, "System Wall Clock Time (ms) = " + System.currentTimeMillis()); 	// Uncomment to measure latency
@@ -99,9 +109,33 @@ public class SchrodinTextView extends TextView {
 		
 		mEncryptedView = true;
     }
+
+	public void redrawEncryptedText() {
+		if (lastCiphertext == null)
+			return;
+		this.setCiphertext(lastCiphertext, lastCiphertextSize, lastTextLen, lastKeyHandle);
+	}
     
     public void clearCiphertext() {
     	clearEncryptedText();
     }
+
+	/* Possible Layout Modes:
+	 * "STANDARD" - Default layout scheme (do not provide any hint to OS regarding ciphertext contents). "One size fits all" mode, but with potential higher white space at end
+	 * "MESSAGGE" - Give a hint to the OS that the plaintext is mostly English full sentences with punctuation.
+	 * "CODE" 	  - Give a hint to the OS that the plaintext is mostly uppercase and numbers only.
+	 *
+	 * Hints are intentionally vague such to not reveal too much information about the plaintext but enough such that the OS can make better heuristic estimations to perform layout. 
+	*/
+	public void setLayoutMode(String mode) {
+		if (mode.equalsIgnoreCase("MESSAGE") || mode.equalsIgnoreCase("CODE")) {
+			textMode = mode;
+		}
+		else {
+			textMode = "STANDARD";
+		}
+		setEncryptedLayoutMode(textMode);
+	}
 }
+
 

@@ -300,7 +300,7 @@ void OpenGLRenderer::updateHiddenContent(void) {
 
     // Update
 	if (base) {
-        fontRenderer.commitHiddenContent(base, w, bytespp, mTextStart, mTextEnd);
+        fontRenderer.commitHiddenContent(base, w, bytespp);
 		//print_time_ms(); 	// Uncomment this line and print_time_ms() function above to measure latency
     }
 
@@ -2316,7 +2316,7 @@ void OpenGLRenderer::drawText(const glyph_t* glyphs, int bytesCount, int count, 
 void OpenGLRenderer::drawEncryptedText(const void* cipher, int bytesCount, int count,
 	const uint32_t* glyphCodebook, unsigned int codebookSize, unsigned int cipherSize,
 	int keyHandle, float x, float y, const float* positions, const SkPaint* paint,
-	float totalAdvance, const Rect& bounds, int textStart, int textEnd, DrawOpMode drawOpMode) {
+	float totalAdvance, const Rect& bounds, int textStart, int textEnd, int* charWidths, int charWidthsSize, DrawOpMode drawOpMode) {
 
     mEncryptedRenderer = true;
     mTextStart = textStart;
@@ -2376,7 +2376,7 @@ void OpenGLRenderer::drawEncryptedText(const void* cipher, int bytesCount, int c
     } else {
         status = fontRenderer.renderPosEncryptedText(paint, clip, cipher, 0, bytesCount,
 													count, glyphCodebook, codebookSize, cipherSize, keyHandle, x, y,
-                									positions, hasActiveLayer ? &layerBounds : NULL, &functor, textStart, textEnd, forceFinish);
+                									positions, hasActiveLayer ? &layerBounds : NULL, &functor, textStart, textEnd, charWidths, charWidthsSize, forceFinish);
     
     }
 

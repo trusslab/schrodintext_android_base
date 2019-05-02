@@ -151,7 +151,7 @@ private:
 class DrawTextFunctorEncrypted {
 public:
     DrawTextFunctorEncrypted(const Layout& layout, Canvas* canvas, const void* _cipher, unsigned int _cipherSize, int _keyHandle, float* pos,
-            const SkPaint& paint, float x, float y, MinikinRect& bounds, float totalAdvance, int textStart, int textEnd)
+            const SkPaint& paint, float x, float y, MinikinRect& bounds, float totalAdvance, int textStart, int textEnd, int* char_widths, int char_widths_size)
         : layout(layout)
         , canvas(canvas)
         , cipher(_cipher)
@@ -164,7 +164,9 @@ public:
         , bounds(bounds)
         , totalAdvance(totalAdvance)
         , textStartPos(textStart)
-        , textEndPos(textEnd)  {
+        , textEndPos(textEnd)
+		, char_widths(char_widths)
+		, char_widths_size(char_widths_size)  {
     }
 
     void operator()(size_t start, size_t end) {
@@ -184,7 +186,8 @@ public:
 		int bytesCount = glyphCount * 2;
 
 		canvas->drawGlyphsEncrypted(cipher, bytesCount, glyphCount, (const uint32_t*) layout.getGlyphCodebook(), layout.getCodebookSize(),
-				  cipherSize, keyHandle, x, y, pos + (2 * start), &paint, totalAdvance, bounds.mLeft, bounds.mTop, bounds.mRight, bounds.mBottom, textStartPos, textEndPos);
+				  cipherSize, keyHandle, x, y, pos + (2 * start), &paint, totalAdvance, bounds.mLeft, bounds.mTop, bounds.mRight, bounds.mBottom, 
+				  textStartPos, textEndPos, char_widths, char_widths_size);
     }
 private:
     const Layout& layout;
@@ -200,6 +203,8 @@ private:
     float totalAdvance;
     int textStartPos;
     int textEndPos;
+	int* char_widths;
+	int char_widths_size;
 };
 
 void Canvas::drawText(const uint16_t* text, int start, int count, int contextCount,
@@ -234,7 +239,7 @@ void Canvas::drawText(const uint16_t* text, int start, int count, int contextCou
 
 void Canvas::drawEncryptedText(const uint16_t* cipher, int start, int count, int contextCount,
              unsigned int cipherSize, int keyHandle, float x, float y, int bidiFlags, const Paint& origPaint,
-	     Typeface* typeface, int textStart, int textEnd) {
+	     Typeface* typeface, int textStart, int textEnd, int* char_widths, int char_widths_size) {
     // minikin may modify the original paint
     Paint paint(origPaint);
     Layout layout;
@@ -252,7 +257,8 @@ void Canvas::drawEncryptedText(const uint16_t* cipher, int start, int count, int
     }
 
     paint.setTextAlign(Paint::kLeft_Align);
-    DrawTextFunctorEncrypted f(layout, this, (const void*)cipher, cipherSize, keyHandle, pos.get(), paint, x, y, bounds, layout.getAdvance(), textStart, textEnd);
+    DrawTextFunctorEncrypted f(layout, this, (const void*)cipher, cipherSize, keyHandle, pos.get(), 
+							   paint, x, y, bounds, layout.getAdvance(), textStart, textEnd, char_widths, char_widths_size);
 
     MinikinUtils::forFontRun(layout, &paint, f);
 }
@@ -308,3 +314,4 @@ void Canvas::drawTextOnPath(const uint16_t* text, int count, int bidiFlags, cons
 }
 
 } // namespace android
+
